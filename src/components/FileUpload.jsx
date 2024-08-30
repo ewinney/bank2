@@ -31,7 +31,21 @@ export default function FileUpload({ onFileUpload, isLoading }) {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('apiKey', localStorage.getItem('openaiApiKey'));
-      onFileUpload(formData);
+      try {
+        const response = await fetch('/api/analyze-statement', {
+          method: 'POST',
+          body: formData,
+        });
+        console.log('API Response Status:', response.status);
+        console.log('API Response Headers:', JSON.stringify(Array.from(response.headers.entries())));
+        const responseText = await response.text();
+        console.log('API Response Text:', responseText);
+        const data = JSON.parse(responseText);
+        onFileUpload(data);
+      } catch (error) {
+        console.error('Error during file upload:', error);
+        setError(`Error during analysis: ${error.message}`);
+      }
     }
   };
 
