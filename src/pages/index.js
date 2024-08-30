@@ -24,12 +24,14 @@ export default function Home() {
   const router = useRouter();
 
   const handleAnalysis = useCallback(async (formData) => {
-    setIsLoading(true);
-    setError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+
     try {
       const response = await fetch('/api/analyze-statement', {
         method: 'POST',
         body: formData,
+        signal: controller.signal
       });
       const result = await response.json();
       console.log('API Response:', result); // Add this line for debugging
@@ -48,9 +50,13 @@ export default function Home() {
       localStorage.setItem('analysisResult', JSON.stringify(result));
       router.push('/statement-review');
     } catch (err) {
-      console.error('Error during analysis:', err);
-      setError(err.message);
+      if (err.name === 'AbortError') {
+        setError('Request timed out');
+      } else {
+        setError(err.message);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     }
   }, [router]);

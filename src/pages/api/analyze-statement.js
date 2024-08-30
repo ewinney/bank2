@@ -74,7 +74,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'OpenAI API key is missing' });
     }
 
-    const openai = new OpenAI({ apiKey: apiKey });
+    const openai = new OpenAI({ 
+      apiKey: apiKey,
+      timeout: 30000 // 30 seconds timeout
+    });
 
     // Extract text from PDF
     const extractedText = await extractTextFromPDF(file.filepath);
