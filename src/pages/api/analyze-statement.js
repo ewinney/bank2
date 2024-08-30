@@ -53,12 +53,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const form = new IncomingForm();
+  try {
+    const form = new IncomingForm();
 
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error parsing form data' });
-    }
+    const [fields, files] = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve([fields, files]);
+      });
+    });
 
     const file = files.file?.[0];
     const apiKey = fields.apiKey?.[0];
@@ -71,32 +74,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'OpenAI API key is missing' });
     }
 
-    try {
-      const openai = new OpenAI({ apiKey: apiKey });
+    const openai = new OpenAI({ apiKey: apiKey });
 
-      // Extract text from PDF
-      const extractedText = await extractTextFromPDF(file.filepath);
+    // Extract text from PDF
+    const extractedText = await extractTextFromPDF(file.filepath);
 
-      // Analyze the extracted text with OpenAI
-      const analysis = await analyzeStatementWithAI(extractedText, openai);
+    // Analyze the extracted text with OpenAI
+    const analysis = await analyzeStatementWithAI(extractedText, openai);
 
-      // Parse the analysis to extract structured data
-      const parsedAnalysis = parseAnalysis(analysis);
+    // Parse the analysis to extract structured data
+    const parsedAnalysis = parseAnalysis(analysis);
 
-      // Ensure the response contains a summary
-      if (!parsedAnalysis.summary) {
-        throw new Error('Analysis result does not contain a summary');
-      }
-
-      res.status(200).json(parsedAnalysis);
-    } catch (error) {
-      console.error('Error processing file:', error);
-      res.status(500).json({ error: `Error processing file: ${error.message}` });
-    } finally {
-      // Clean up the temporary file
-      await fs.unlink(file.filepath);
+    // Ensure the response contains a summary
+    if (!parsedAnalysis.summary) {
+      throw new Error('Analysis result does not contain a summary');
     }
-  });
+
+    res.status(200).json(parsedAnalysis);
+  } catch (error) {
+    console.error('Error processing file:', error);
+    res.status(500).json({ error: `Error processing file: ${error.message}` });
+  } finally {
+    // Clean up the temporary file if it exists
+    if (file && file.filepath) {
+      try {
+        await fs.unlink(file.filepath);
+      } catch (unlinkError) {
+        console.error('Error deleting temporary file:', unlinkError);
+      }
+    }
+  }
 }
 
 function parseAnalysis(analysis) {
