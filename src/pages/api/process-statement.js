@@ -24,7 +24,7 @@ async function processStatement(labeledTexts, openai, res, startDate, endDate) {
     for (const [month, text] of Object.entries(labeledTexts)) {
       console.log(`Processing statement for ${month}`);
 
-      const maxTokens = 4000; // Reduced from 8000
+      const maxTokens = 4000;
       const encodedText = encode(text);
       const chunks = [];
       
@@ -48,7 +48,7 @@ async function processStatement(labeledTexts, openai, res, startDate, endDate) {
               content: `Extract financial data from this bank statement chunk for ${month}:\n\n${chunks[i]}`
             }
           ],
-          max_tokens: 2000, // Reduced from 3000
+          max_tokens: 2000,
         });
 
         extractedData += response.choices[0].message.content + '\n';
@@ -66,14 +66,14 @@ async function processStatement(labeledTexts, openai, res, startDate, endDate) {
         messages: [
           {
             role: "system",
-            content: "You are a financial data extractor. Extract a list of transactions from the given financial data. Each transaction should include a date, description, and amount. Also calculate the total income and total expenses for this month. Format the output as a valid JSON object with 'transactions' array, 'totalIncome', and 'totalExpenses' fields. Do not include any markdown formatting or code blocks in your response."
+            content: "You are a financial data extractor. Extract a list of transactions from the given financial data. Each transaction should include a date, description, and amount. Also calculate the total income, total expenses, largest transaction, and average transaction size for this month. Format the output as a valid JSON object with 'transactions' array and 'summary' object containing the calculated values. Do not include any markdown formatting or code blocks in your response."
           },
           {
             role: "user",
-            content: `Extract transactions and calculate totals from this financial data for ${month}. Only include transactions between ${startDate} and ${endDate}:\n\n${extractedData}`
+            content: `Extract transactions and calculate summary data from this financial data for ${month}. Only include transactions between ${startDate} and ${endDate}:\n\n${extractedData}`
           }
         ],
-        max_tokens: 2000, // Reduced from 4000
+        max_tokens: 2000,
         temperature: 0.2,
       });
 
@@ -87,7 +87,7 @@ async function processStatement(labeledTexts, openai, res, startDate, endDate) {
       } catch (parseError) {
         console.error(`Error parsing transactions for ${month}:`, parseError);
         console.log('Raw response:', transactionsResponse.choices[0].message.content);
-        allTransactions[month] = { transactions: [], totalIncome: 0, totalExpenses: 0 };
+        allTransactions[month] = { transactions: [], summary: { totalIncome: 0, totalExpenses: 0, largestTransaction: 0, averageTransactionSize: 0 } };
       }
     }
 
@@ -109,34 +109,48 @@ Provide a brief overview of the financial health and key findings.
 
 ## 1. Income Analysis
 
+### Total Income
 - Total income for the period: $X
-- Breakdown of income sources:
-  * Source 1: $X (X% of total)
-  * Source 2: $X (X% of total)
-- Income trends and patterns
-- Largest income transactions
+
+### Income Breakdown
+- Source 1: $X (X% of total)
+- Source 2: $X (X% of total)
+
+### Income Trends and Patterns
+
+### Largest Income Transactions
 
 ## 2. Expense Analysis
 
+### Total Expenses
 - Total expenses for the period: $X
-- Categorization of expenses:
-  * Category 1: $X (X% of total)
-  * Category 2: $X (X% of total)
-- Expense trends and patterns
-- Largest expense transactions
+
+### Expense Categorization
+- Category 1: $X (X% of total)
+- Category 2: $X (X% of total)
+
+### Expense Trends and Patterns
+
+### Largest Expense Transactions
 
 ## 3. Cash Flow Analysis
 
+### Net Cash Flow
 - Net cash flow for the period: $X
-- Monthly cash flow trends
-- Cash flow stability assessment
+
+### Monthly Cash Flow Trends
+
+### Cash Flow Stability Assessment
 
 ## 4. Transaction Analysis
 
+### Transaction Overview
 - Total number of transactions: X
 - Average transaction size: $X
-- Transaction frequency patterns
-- Unusual or noteworthy transactions
+
+### Transaction Patterns
+
+### Unusual or Noteworthy Transactions
 
 ## 5. Financial Ratios
 
@@ -147,45 +161,80 @@ Provide a brief overview of the financial health and key findings.
 
 ## 6. Trend Analysis
 
-- Identify and explain trends across months
-- Seasonal patterns or cyclical behavior
+### Monthly Trends
+
+### Seasonal Patterns or Cyclical Behavior
 
 ## 7. Risk Assessment
 
-- Identify potential financial risks
-- Assess overall financial stability
+### Potential Financial Risks
+
+### Overall Financial Stability
 
 # Underwriter's Analysis
 
-- Overall financial health assessment
-- Potential red flags or areas of concern
-- Positive aspects of financial behavior
-- Educated assumptions about the account holder's financial situation and habits
-- Areas where more information might be needed
-- Insights valuable for underwriting decisions
+## Overall Financial Health Assessment
+
+## Potential Red Flags or Areas of Concern
+
+## Positive Aspects of Financial Behavior
+
+## Account Holder's Financial Situation and Habits
+
+## Areas Needing More Information
+
+## Insights for Underwriting Decisions
 
 # Recommendations
 
-- Suggestions for improving financial health
-- Areas for potential cost-saving or income growth
+## Financial Health Improvement Suggestions
+
+## Cost-Saving and Income Growth Opportunities
 
 Use bullet points, numbered lists, and other markdown formatting to enhance readability. Ensure there is adequate spacing between sections for easy scanning.`
         },
         {
           role: "user",
-          content: `Analyze this financial data from multiple months, considering only transactions between ${startDate} and ${endDate}:\n\n${allExtractedData}`
+          content: `Analyze this financial data from multiple months, considering only transactions between ${startDate} and ${endDate}:\n\n${JSON.stringify(allTransactions, null, 2)}`
         }
       ],
-      max_tokens: 4000, // Reduced from 8000
+      max_tokens: 4000,
       temperature: 0.2,
     });
 
     const analysis = analysisResponse.choices[0].message.content;
+    
+    // Generate visualization data
+    const visualizationData = await generateVisualizationData(allTransactions, openai);
 
-    return { extractedData: allExtractedData.trim(), analysis, transactions: allTransactions };
+    return { extractedData: allExtractedData.trim(), analysis, transactions: allTransactions, visualizationData };
   } catch (error) {
     console.error('Error in processing:', error);
     throw new Error(`Failed to process the statements: ${error.message}`);
+  }
+}
+
+async function generateVisualizationData(transactions, openai) {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-1106-preview",
+      messages: [
+        {
+          role: "system",
+          content: "You are a data visualization expert. Given a set of financial transactions, generate JSON data for creating charts and graphs. Focus on key financial metrics and trends. The output should be a valid JSON object with a 'charts' array containing chart configurations compatible with Chart.js."
+        },
+        {
+          role: "user",
+          content: `Generate visualization data for these transactions:\n\n${JSON.stringify(transactions)}`
+        }
+      ],
+      max_tokens: 1500,
+    });
+
+    return JSON.parse(response.choices[0].message.content);
+  } catch (error) {
+    console.error('Error generating visualization data:', error);
+    return null;
   }
 }
 

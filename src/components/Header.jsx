@@ -9,17 +9,17 @@ export default function Header() {
         <div className="w-full py-6 flex items-center justify-between border-b border-indigo-500 dark:border-indigo-700 lg:border-none">
           <div className="flex items-center">
             <Link href="/">
-              <span className="text-2xl font-bold text-primary">
-                Bank Statement Analyzer
+              <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">
+                FinanceInsight Pro
               </span>
             </Link>
           </div>
           <div className="ml-10 space-x-4 flex items-center">
             <Link href="/saved-analyses">
-              <Button variant="outline">Saved Analyses</Button>
+              <Button variant="ghost">Saved Analyses</Button>
             </Link>
             <Link href="/settings">
-              <Button variant="outline">Settings</Button>
+              <Button variant="ghost">Settings</Button>
             </Link>
             <DarkModeToggle />
           </div>

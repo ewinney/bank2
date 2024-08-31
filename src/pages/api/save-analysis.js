@@ -15,13 +15,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Ensure the analyses directory exists
     await fs.mkdir(ANALYSES_DIR, { recursive: true });
 
     const fileName = `${bankName}_${statementDate.replace(/\//g, '-')}.json`;
     const filePath = path.join(ANALYSES_DIR, fileName);
 
-    await fs.writeFile(filePath, JSON.stringify(analysis, null, 2));
+    const dataToSave = {
+      ...analysis,
+      visualizationData: analysis.visualizationData || {}
+    };
+
+    await fs.writeFile(filePath, JSON.stringify(dataToSave, null, 2));
 
     res.status(200).json({ message: 'Analysis saved successfully', fileName });
   } catch (error) {

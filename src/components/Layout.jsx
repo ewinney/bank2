@@ -4,7 +4,7 @@ import Footer from '@/components/Footer';
 
 export default function Layout({ children, title, description }) {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
       <Head>
         <title>{`${title} - Business Bank Statement Analyzer`}</title>
         <meta name="description" content={description} />
