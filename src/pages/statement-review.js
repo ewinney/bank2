@@ -28,6 +28,7 @@ export default function StatementReview() {
         const parsedData = JSON.parse(data);
         setStatementData(parsedData);
         console.log("Loaded statement data:", parsedData);
+        console.log("Visualization data:", parsedData.visualizationData);
       } catch (error) {
         console.error("Error parsing statement data:", error);
         toast({
@@ -127,12 +128,12 @@ export default function StatementReview() {
               'Save Analysis'
             )}
           </Button>
-          
+
           <h3 className="text-lg font-semibold mt-6 mb-2">Analysis</h3>
           <div className="mb-4 p-4 bg-gray-100 rounded overflow-auto">
             <ReactMarkdown>{statementData.analysis}</ReactMarkdown>
           </div>
-          
+
           <h3 className="text-lg font-semibold mb-2">Transactions</h3>
           <Textarea
             value={JSON.stringify(statementData.transactions, null, 2)}
@@ -140,10 +141,13 @@ export default function StatementReview() {
             rows={10}
             className="font-mono text-sm"
           />
-          
+
           <div className="mt-4 space-x-4">
             <Button onClick={() => router.push('/')}>Back to Home</Button>
-            <Button onClick={() => setShowVisualizations(!showVisualizations)}>
+            <Button onClick={() => {
+              setShowVisualizations(!showVisualizations);
+              console.log("Visualization data when toggling:", statementData.visualizationData);
+            }}>
               {showVisualizations ? 'Hide Visualizations' : 'Show Visualizations'}
             </Button>
           </div>
@@ -151,7 +155,11 @@ export default function StatementReview() {
           {showVisualizations && (
             <div className="mt-6">
               <h3 className="text-lg font-semibold mb-2">Visualizations</h3>
-              <Visualizations data={statementData.visualizationData} />
+              {statementData.visualizationData ? (
+                <Visualizations data={statementData.visualizationData} />
+              ) : (
+                <p>No visualization data available</p>
+              )}
             </div>
           )}
         </CardContent>

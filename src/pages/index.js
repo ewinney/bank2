@@ -17,7 +17,11 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
 
+  console.log('Home component rendered. isProcessing:', isProcessing);
+  console.log('Date range:', startDate, 'to', endDate);
+
   const handleFileUploadAndAnalysis = async (files) => {
+    console.log('handleFileUploadAndAnalysis called with files:', files);
     setIsProcessing(true);
     setProgress(0);
     const formData = new FormData();
@@ -132,6 +136,7 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
+                {console.log('Rendering FileUpload component with props:', { isProcessing, startDate, endDate })}
                 <FileUpload
                   onUploadAndAnalyze={handleFileUploadAndAnalysis}
                   isProcessing={isProcessing}
