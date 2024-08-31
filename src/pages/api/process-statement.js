@@ -16,9 +16,9 @@ async function extractTextFromPDF(filePath) {
   return data.text;
 }
 
-async function analyzeStatementWithAI(text, openai) {
+async function processStatement(text, openai) {
   try {
-    const maxTokens = 3000; // Further reduce token count per request
+    const maxTokens = 4000;
     const encodedText = encode(text);
     const chunks = [];
     
@@ -28,58 +28,56 @@ async function analyzeStatementWithAI(text, openai) {
 
     console.log(`Total chunks: ${chunks.length}`);
 
-    let transactions = [];
+    let extractedData = '';
+    let analysis = '';
 
+    // Extract data
     for (let i = 0; i < chunks.length; i++) {
       console.log(`Processing chunk ${i + 1} of ${chunks.length}`);
       const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4-1106-preview",
         messages: [
           {
             role: "system",
-            content: "You are a financial data extractor. Extract transaction details from the given text in a structured format: date, description, amount (positive for credits, negative for debits). Respond with a JSON array of transactions only."
+            content: "You are a financial data extractor. Extract all relevant financial information from the given bank statement chunk, including transaction details, dates, amounts, and any other important data. Format the output as a structured text, preserving the original layout where possible."
           },
           {
             role: "user",
-            content: `Extract transactions from this bank statement chunk:\n\n${chunks[i]}`
+            content: `Extract financial data from this bank statement chunk:\n\n${chunks[i]}`
           }
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
       });
 
-      const chunkTransactions = JSON.parse(response.choices[0].message.content);
-      transactions = transactions.concat(chunkTransactions);
+      extractedData += response.choices[0].message.content + '\n';
 
       if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
-    console.log(`Total transactions extracted: ${transactions.length}`);
-
-    // Summarize transactions
-    const summaryResponse = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    // Analyze extracted data
+    const analysisResponse = await openai.chat.completions.create({
+      model: "gpt-4-1106-preview",
       messages: [
         {
           role: "system",
-          content: "You are a financial analyst. Summarize the following transactions, providing key insights, total income, expenses, largest transaction, average transaction size, number of transactions, and net profit. Also, provide a brief assessment of the financial health based on these transactions."
+          content: "You are a financial analyst. Analyze the given financial data and provide a comprehensive summary including total income, expenses, largest transaction, average transaction size, number of transactions, net profit, and a brief assessment of the financial health."
         },
         {
           role: "user",
-          content: `Summarize these transactions:\n\n${JSON.stringify(transactions)}`
+          content: `Analyze this financial data:\n\n${extractedData}`
         }
       ],
-      max_tokens: 500,
+      max_tokens: 1500,
     });
 
-    const summary = summaryResponse.choices[0].message.content;
-    console.log("Summary generated successfully");
+    analysis = analysisResponse.choices[0].message.content;
 
-    return { summary, transactions };
+    return { extractedData: extractedData.trim(), analysis: analysis.trim() };
   } catch (error) {
-    console.error('Error in AI analysis:', error);
-    throw new Error(`Failed to analyze the statement with AI: ${error.message}`);
+    console.error('Error in processing:', error);
+    throw new Error(`Failed to process the statement: ${error.message}`);
   }
 }
 
@@ -88,6 +86,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let file;
   try {
     const form = new IncomingForm();
 
@@ -98,7 +97,7 @@ export default async function handler(req, res) {
       });
     });
 
-    const file = files.file?.[0];
+    file = files.file?.[0];
     const apiKey = fields.apiKey?.[0];
 
     if (!file) {
@@ -111,27 +110,22 @@ export default async function handler(req, res) {
 
     const openai = new OpenAI({ 
       apiKey: apiKey,
-      timeout: 60000 // 60 seconds timeout
+      timeout: 60000
     });
 
     console.log("Extracting text from PDF");
     const extractedText = await extractTextFromPDF(file.filepath);
     console.log(`Extracted text length: ${extractedText.length} characters`);
 
-    console.log("Analyzing statement with AI");
-    const analysis = await analyzeStatementWithAI(extractedText, openai);
+    console.log("Processing statement");
+    const result = await processStatement(extractedText, openai);
 
-    res.status(200).json(analysis);
+    // Clean up the file
+    await fs.unlink(file.filepath);
+
+    res.status(200).json(result);
   } catch (error) {
     console.error('Error processing file:', error);
     res.status(500).json({ error: `Error processing file: ${error.message}` });
-  } finally {
-    if (file && file.filepath) {
-      try {
-        await fs.unlink(file.filepath);
-      } catch (unlinkError) {
-        console.error('Error deleting temporary file:', unlinkError);
-      }
-    }
   }
 }

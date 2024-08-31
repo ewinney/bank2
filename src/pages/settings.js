@@ -5,13 +5,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { getOpenAIApiKey, setOpenAIApiKey } from '@/lib/settings';
 
 export default function Settings() {
   const [apiKey, setApiKey] = useState('');
   const router = useRouter();
 
   useEffect(() => {
-    const storedApiKey = localStorage.getItem('openaiApiKey');
+    const storedApiKey = getOpenAIApiKey();
     if (storedApiKey) {
       setApiKey(storedApiKey);
     }
@@ -19,8 +20,7 @@ export default function Settings() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    localStorage.setItem('openaiApiKey', apiKey);
-    console.log('API Key saved:', apiKey); // Add this line
+    setOpenAIApiKey(apiKey);
     toast({
       title: "Settings saved",
       description: "Your OpenAI API key has been saved.",

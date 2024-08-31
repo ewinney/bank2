@@ -1,21 +1,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Upload, AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { motion } from 'framer-motion';
 
-export default function FileUpload({ onFileUpload, isLoading }) {
+export default function FileUpload({ onUploadAndAnalyze, isProcessing }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState(null);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError('File size exceeds the 10MB limit.');
-        setSelectedFile(null);
-      } else if (file.type !== 'application/pdf') {
+      if (file.type !== 'application/pdf') {
         setError('Invalid file type. Please upload a PDF file.');
         setSelectedFile(null);
       } else {
@@ -25,39 +21,33 @@ export default function FileUpload({ onFileUpload, isLoading }) {
     }
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     if (selectedFile) {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('apiKey', localStorage.getItem('openaiApiKey'));
-      onFileUpload(formData);
+      onUploadAndAnalyze(selectedFile);
+    } else {
+      setError('Please select a file before uploading.');
     }
   };
 
   return (
-    <motion.form
-      onSubmit={handleSubmit}
-      className="space-y-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center space-x-4">
         <Input
           type="file"
           onChange={handleFileChange}
           accept=".pdf"
-          disabled={isLoading}
+          disabled={isProcessing}
           className="flex-grow"
         />
-        <Button type="submit" disabled={!selectedFile || isLoading}>
-          {isLoading ? (
-            'Analyzing...'
-          ) : (
+        <Button type="submit" disabled={isProcessing || !selectedFile}>
+          {isProcessing ? (
             <>
-              <Upload className="mr-2 h-4 w-4" /> Upload
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
             </>
+          ) : (
+            'Upload and Analyze'
           )}
         </Button>
       </div>
@@ -72,12 +62,6 @@ export default function FileUpload({ onFileUpload, isLoading }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Accepted file type: PDF. Maximum file size: 10MB.
-        </AlertDescription>
-      </Alert>
-    </motion.form>
+    </form>
   );
 }
