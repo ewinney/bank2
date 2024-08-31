@@ -1,6 +1,8 @@
+import React, { Suspense, lazy } from 'react';
 import Head from 'next/head';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+
+const Header = lazy(() => import('@/components/Header'));
+const Footer = lazy(() => import('@/components/Footer'));
 
 export default function Layout({ children, title, description }) {
   return (
@@ -9,11 +11,15 @@ export default function Layout({ children, title, description }) {
         <title>{`${title} - Business Bank Statement Analyzer`}</title>
         <meta name="description" content={description} />
       </Head>
-      <Header />
+      <Suspense fallback={<div>Loading...</div>}>
+        <Header />
+      </Suspense>
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
-      <Footer />
+      <Suspense fallback={<div>Loading...</div>}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }
