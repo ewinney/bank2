@@ -17,7 +17,11 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
 
+  console.log('Home component rendered. isProcessing:', isProcessing);
+  console.log('Date range:', startDate, 'to', endDate);
+
   const handleFileUploadAndAnalysis = async (files) => {
+    console.log('handleFileUploadAndAnalysis called with files:', files);
     setIsProcessing(true);
     setProgress(0);
     const formData = new FormData();
@@ -25,30 +29,38 @@ export default function Home() {
     Object.keys(files).forEach((month) => {
       if (files[month]) {
         formData.append(month, files[month]);
+        console.log(`Appended file for ${month}:`, files[month].name);
       }
     });
 
     formData.append('apiKey', localStorage.getItem('openaiApiKey'));
     formData.append('startDate', startDate);
     formData.append('endDate', endDate);
+    console.log('FormData prepared with start date:', startDate, 'and end date:', endDate);
 
     try {
+      console.log('Sending POST request to /api/process-statement');
       const response = await fetch('/api/process-statement', {
         method: 'POST',
         body: formData,
       });
 
+      console.log('Received response with status:', response.status);
       if (!response.ok) {
-        throw new Error('Failed to process the statements');
+        throw new Error(`Failed to process the statements: ${response.status} ${response.statusText}`);
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let partialData = '';
 
+      console.log('Starting to read response stream');
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('Finished reading response stream');
+          break;
+        }
 
         const chunk = decoder.decode(value, { stream: true });
         partialData += chunk;
@@ -59,26 +71,37 @@ export default function Home() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = JSON.parse(line.slice(6));
+            console.log('Received data:', data);
             if (data.month) {
-              setProgress((prev) => prev + (100 / Object.keys(files).length));
+              const newProgress = Math.min(100, (prev) => prev + (100 / Object.keys(files).length));
+              console.log(`Updating progress for ${data.month}:`, newProgress);
+              setProgress(newProgress);
             } else if (data.final) {
+              console.log('Received final data, storing in localStorage');
               localStorage.setItem('statementAnalysis', JSON.stringify(data.final));
+              console.log('Redirecting to statement-review page');
               router.push('/statement-review');
             }
           }
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in handleFileUploadAndAnalysis:', error);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
     } finally {
+      console.log('Finishing handleFileUploadAndAnalysis');
       setIsProcessing(false);
       setProgress(0);
     }
+  };
+
+  const onUploadComplete = () => {
+    console.log('Upload completed');
+    setIsProcessing(false);
   };
 
   return (
@@ -110,7 +133,7 @@ export default function Home() {
                     id="startDate"
                     type="month"
                     value={startDate.slice(0, 7)}
-                    onChange={(e) => setStartDate(`${e.target.value}-01`)}
+                    onChange={(e) => setStartDate(e.target.value)}
                     max={endDate.slice(0, 7)}
                     className="mt-2 w-full"
                   />
@@ -121,7 +144,7 @@ export default function Home() {
                     id="endDate"
                     type="month"
                     value={endDate.slice(0, 7)}
-                    onChange={(e) => setEndDate(`${e.target.value}-01`)}
+                    onChange={(e) => setEndDate(e.target.value)}
                     min={startDate.slice(0, 7)}
                     className="mt-2 w-full"
                   />
@@ -132,11 +155,13 @@ export default function Home() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
+                {console.log('Rendering FileUpload component with props:', { isProcessing, startDate, endDate })}
                 <FileUpload
                   onUploadAndAnalyze={handleFileUploadAndAnalysis}
                   isProcessing={isProcessing}
                   startDate={startDate}
                   endDate={endDate}
+                  onUploadComplete={() => setIsProcessing(false)}
                 />
               </motion.div>
               {isProcessing && (
