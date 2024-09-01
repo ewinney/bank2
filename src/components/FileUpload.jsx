@@ -5,9 +5,10 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 
-export default function FileUpload({ onUploadAndAnalyze, isProcessing, startDate, endDate }) {
+export default function FileUpload({ onUploadAndAnalyze, isProcessing, startDate, endDate, onUploadComplete }) {
   const [selectedFiles, setSelectedFiles] = useState({});
   const [error, setError] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const buttonRef = useRef(null);
   console.log('FileUpload component rendered');
 
@@ -54,13 +55,26 @@ export default function FileUpload({ onUploadAndAnalyze, isProcessing, startDate
   const handleSubmit = (event) => {
     event.preventDefault();
     console.log('handleSubmit called. selectedFiles:', selectedFiles);
-    console.log('isProcessing:', isProcessing);
-    const isDisabled = isProcessing || Object.keys(selectedFiles).length === 0;
+    console.log('isUploading:', isUploading);
+    const isDisabled = isUploading || Object.keys(selectedFiles).length === 0;
     console.log('Button disabled state:', isDisabled);
 
-    if (Object.keys(selectedFiles).length > 0) {
+    if (Object.keys(selectedFiles).length > 0 && !isUploading) {
+      setIsUploading(true);
       console.log('Calling onUploadAndAnalyze with files:', selectedFiles);
-      onUploadAndAnalyze(selectedFiles);
+      onUploadAndAnalyze(selectedFiles)
+        .then(() => {
+          console.log('Upload complete');
+          setIsUploading(false);
+          onUploadComplete();
+        })
+        .catch((error) => {
+          console.error('Upload failed:', error);
+          setIsUploading(false);
+          setError('Failed to upload and analyze files. Please try again.');
+        });
+    } else if (isUploading) {
+      console.log('Upload already in progress');
     } else {
       console.log('No files selected. Setting error.');
       setError('Please select at least one file before uploading.');
@@ -94,7 +108,7 @@ export default function FileUpload({ onUploadAndAnalyze, isProcessing, startDate
             type="file"
             onChange={(e) => handleFileChange(e, month)}
             accept=".pdf"
-            disabled={isProcessing}
+            disabled={isUploading}
           />
           {selectedFiles[month] && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -105,14 +119,14 @@ export default function FileUpload({ onUploadAndAnalyze, isProcessing, startDate
       ))}
       <Button
         type="submit"
-        disabled={buttonDisabled}
+        disabled={isUploading || Object.keys(selectedFiles).length === 0}
         ref={buttonRef}
-        onClick={() => console.log('Button clicked. isProcessing:', isProcessing, 'selectedFiles:', selectedFiles, 'buttonDisabled:', buttonDisabled)}
+        onClick={() => console.log('Button clicked. isUploading:', isUploading, 'selectedFiles:', selectedFiles)}
       >
-        {isProcessing ? (
+        {isUploading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Processing...
+            Uploading...
           </>
         ) : (
           'Upload and Analyze'
