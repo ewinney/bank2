@@ -22,6 +22,16 @@ export default function Home() {
 
   const handleFileUploadAndAnalysis = async (files) => {
     console.log('handleFileUploadAndAnalysis called with files:', files);
+    if (!files || Object.keys(files).length === 0) {
+      console.error('No files provided for upload and analysis');
+      toast({
+        title: "Error",
+        description: "No files selected for upload and analysis.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
     const formData = new FormData();
@@ -33,14 +43,27 @@ export default function Home() {
       }
     });
 
-    formData.append('apiKey', localStorage.getItem('openaiApiKey'));
+    const apiKey = localStorage.getItem('openaiApiKey');
+    if (!apiKey) {
+      console.error('OpenAI API key not found in localStorage');
+      toast({
+        title: "Error",
+        description: "OpenAI API key is missing. Please check your settings.",
+        variant: "destructive",
+      });
+      setIsProcessing(false);
+      return;
+    }
+
+    formData.append('apiKey', apiKey);
     formData.append('startDate', startDate);
     formData.append('endDate', endDate);
     console.log('FormData prepared with start date:', startDate, 'and end date:', endDate);
 
     try {
-      console.log('Sending POST request to /api/process-statement');
-      const response = await fetch('/api/process-statement', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/process-statement';
+      console.log(`Sending POST request to ${apiUrl}`);
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });
@@ -70,17 +93,21 @@ export default function Home() {
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            console.log('Received data:', data);
-            if (data.month) {
-              const newProgress = Math.min(100, (prev) => prev + (100 / Object.keys(files).length));
-              console.log(`Updating progress for ${data.month}:`, newProgress);
-              setProgress(newProgress);
-            } else if (data.final) {
-              console.log('Received final data, storing in localStorage');
-              localStorage.setItem('statementAnalysis', JSON.stringify(data.final));
-              console.log('Redirecting to statement-review page');
-              router.push('/statement-review');
+            try {
+              const data = JSON.parse(line.slice(6));
+              console.log('Received data:', data);
+              if (data.month) {
+                const newProgress = Math.min(100, (prev) => prev + (100 / Object.keys(files).length));
+                console.log(`Updating progress for ${data.month}:`, newProgress);
+                setProgress(newProgress);
+              } else if (data.final) {
+                console.log('Received final data, storing in localStorage');
+                localStorage.setItem('statementAnalysis', JSON.stringify(data.final));
+                console.log('Redirecting to statement-review page');
+                router.push('/statement-review');
+              }
+            } catch (parseError) {
+              console.error('Error parsing streaming data:', parseError);
             }
           }
         }
